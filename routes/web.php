@@ -65,6 +65,7 @@ Route::middleware(['auth'])->group(function () {
  Route::get('/reportes/generar/{id_test}', [ReporteController::class, 'generar'])->name('reportes.generar');
  Route::get('/reportes/descargar/{id_reporte}', [ReporteController::class, 'descargar'])->name('reportes.descargar');
 });
-
+// Descarga de reporte individual (solo para tests completados)
+Route::get('/reporte/test/{id_test}', [ReporteController::class, 'generar'])->name('reporte.generar');
 
 require __DIR__.'/auth.php';

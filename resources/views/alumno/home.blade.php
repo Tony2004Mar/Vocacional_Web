@@ -138,13 +138,7 @@
                         <span class="font-medium">{{ auth()->user()->nombre ?? auth()->user()->name }}</span>
                     </div>
 
-                <div class="hidden md:flex items-center space-x-2 glass-effect px-4 py-2 rounded-full">
-                   <div class="w-8 h-8 rounded-full bg-gradient-to-r from-tec-500 to-valle-500 flex items-center justify-center shadow-md">
-                      <span class="text-white font-bold text-sm">{{ substr(auth()->user()->Perfil ?? auth()->user()->name, 0, 1) }}</span>
-                             </div>
-                              <span class="font-medium">{{ auth()->user()->nombre ?? auth()->user()->name }}</span>
-                </div>
-
+               
                     <form method="POST" action="{{ route('logout') }}">
                         @csrf
                         <button type="submit" class="px-4 py-2 bg-red-600/80 hover:bg-red-700 rounded-lg transition-all duration-300 backdrop-blur-sm">
@@ -351,24 +345,6 @@
                             </div>
                             <i class="fas fa-chevron-right text-tec-400 group-hover:translate-x-1 transition-transform duration-300"></i>
                         </a>
-
-                        @if($ultimoResultado)
-                            <a href="{{ route('reportes.generar', ['id_test' => $ultimoResultado->id_test]) }}"
-                               class="flex items-center justify-between p-4 rounded-xl bg-white/5 hover:bg-white/10 transition-all duration-300 group">
-                               <div class="flex items-center space-x-3">
-                                   <div class="w-10 h-10 rounded-lg bg-valle-500/20 flex items-center justify-center">
-                                       <i class="fas fa-download text-valle-400"></i>
-                                   </div>
-                                   <span>Descargar Reporte</span>
-                               </div>
-                               <i class="fas fa-chevron-right text-valle-400 group-hover:translate-x-1 transition-transform duration-300"></i>
-                            </a>
-                        @else
-                            <div class="p-4 rounded-xl bg-gray-800/20 text-gray-400 text-sm text-center">
-                                Aún no tienes resultados disponibles para descargar.
-                            </div>
-                        @endif
-
                     </div>
                 </div>
 

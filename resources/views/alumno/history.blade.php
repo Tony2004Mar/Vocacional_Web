@@ -166,6 +166,108 @@
         .modal-overlay.active .modal-content {
             transform: scale(1);
         }
+
+        /* ===== BOTÓN DE DESCARGA ===== */
+        .btn-download {
+            background: linear-gradient(135deg, #10b981, #059669);
+            transition: all 0.3s ease;
+            color: white;
+            padding: 8px 14px;
+            border-radius: 10px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            border: none;
+            cursor: pointer;
+            min-width: 85px;
+            justify-content: center;
+        }
+        .btn-download:hover:not(:disabled) {
+            transform: scale(1.05);
+            box-shadow: 0 8px 25px rgba(16, 185, 129, 0.4);
+        }
+        .btn-download:active:not(:disabled) {
+            transform: scale(0.95);
+        }
+        .btn-download:disabled {
+            opacity: 0.4;
+            cursor: not-allowed;
+            transform: none !important;
+        }
+
+        .btn-download-loading {
+            opacity: 0.7;
+            pointer-events: none;
+        }
+
+        /* ===== BOTÓN DESHABILITADO (test en progreso) ===== */
+        .btn-download-disabled {
+            background: rgba(255, 255, 255, 0.1);
+            color: rgba(255, 255, 255, 0.4);
+            cursor: not-allowed;
+            padding: 8px 14px;
+            border-radius: 10px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            min-width: 85px;
+            justify-content: center;
+        }
+
+        /* ===== NOTIFICACIONES ===== */
+        .notification {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            z-index: 2000;
+            padding: 16px 24px;
+            border-radius: 12px;
+            font-weight: 500;
+            transform: translateX(120%);
+            transition: transform 0.4s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+            max-width: 400px;
+            backdrop-filter: blur(10px);
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
+        }
+
+        .notification.show {
+            transform: translateX(0);
+        }
+
+        .notification-success {
+            background: rgba(16, 185, 129, 0.95);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            color: white;
+        }
+
+        .notification-error {
+            background: rgba(239, 68, 68, 0.95);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            color: white;
+        }
+
+        .notification-info {
+            background: rgba(59, 130, 246, 0.95);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            color: white;
+        }
+
+        /* ===== RESPONSIVE ===== */
+        @media (max-width: 640px) {
+            .btn-download, .btn-download-disabled {
+                font-size: 0.65rem;
+                padding: 6px 10px;
+                min-width: 65px;
+            }
+            .btn-download i, .btn-download-disabled i {
+                font-size: 0.65rem;
+            }
+        }
     </style>
 </head>
 <body class="gradient-bg min-h-screen font-sans text-white overflow-x-hidden">
@@ -209,13 +311,13 @@
                         </div>
                     </a>
                 </div>
-             <div class="text-center">
-                        <a href="{{ route('estudiante.home') }}"
-                           class="inline-flex items-center px-6 py-3 glass-effect hover:bg-white/10 rounded-xl transition-all duration-300 font-semibold">
-                            <i class="fas fa-arrow-left mr-2"></i>
-                            Volver al Dashboard
-                        </a>
-                    </div>
+                <div class="text-center">
+                    <a href="{{ route('estudiante.home') }}"
+                       class="inline-flex items-center px-6 py-3 glass-effect hover:bg-white/10 rounded-xl transition-all duration-300 font-semibold">
+                        <i class="fas fa-arrow-left mr-2"></i>
+                        Volver al Dashboard
+                    </a>
+                </div>
 
                 <div class="flex items-center space-x-4">
                     <div class="hidden md:flex items-center space-x-2 glass-effect px-4 py-2 rounded-full">
@@ -238,6 +340,10 @@
             </h2>
             <p class="text-xl text-tec-200 max-w-2xl mx-auto">
                 Revisa todos tus tests vocacionales realizados y sus resultados detallados
+            </p>
+            <p class="text-sm text-tec-300 mt-2">
+                <i class="fas fa-file-pdf text-valle-400 mr-1"></i>
+                Los tests completados tienen disponible su reporte en PDF
             </p>
         </div>
 
@@ -266,6 +372,7 @@
                     $resultado = $test->resultado;
                     $topCategorias = [];
                     $puntosData = [];
+                    $estaCompletado = $estado && $estado->nombre == 'finalizado';
 
                     if ($resultado) {
                         $puntos = [
@@ -307,7 +414,7 @@
                             </p>
                         </div>
                         <div class="text-right">
-                            @if($test->estado && $test->estado->nombre == 'finalizado')
+                            @if($estaCompletado)
                                 <span class="badge badge-completed text-xs">Completado</span>
                             @else
                                 <span class="badge badge-progress text-xs">En Progreso</span>
@@ -315,7 +422,7 @@
                         </div>
                     </div>
 
-                    @if($estado && $estado->nombre == 'finalizado' && !empty($puntosData))
+                    @if($estaCompletado && !empty($puntosData))
                     <div class="mb-3">
                         <div class="mini-chart-container">
                             <canvas id="chart-{{ $test->id_test }}"></canvas>
@@ -344,11 +451,12 @@
                             <i class="fas fa-spinner text-tec-400 text-sm animate-spin"></i>
                         </div>
                         <p class="text-tec-200 text-xs">Test en progreso</p>
+                        <p class="text-tec-300 text-xs mt-1">Completa el test para ver tu reporte</p>
                     </div>
                     @endif
 
                     <!-- Recommended Careers -->
-                    @if($estado == 'finalizado' && $carreras->isNotEmpty())
+                    @if($estaCompletado && $carreras->isNotEmpty())
                     <div class="mb-3">
                         <h4 class="text-xs font-semibold text-tec-200 mb-1 text-center">Carreras Recomendadas</h4>
                         <div class="space-y-1">
@@ -363,32 +471,47 @@
                     @endif
 
                     <!-- Action Buttons -->
-                    <div class="flex justify-between items-center pt-3 border-t border-tec-700/50">
-                         @if($test->estado && $test->estado->nombre == 'en_progreso')
-                          <a href="{{ route('test.question', ['test' => $test->id_test, 'index' => $test->id_pregunta_actual ?? 0]) }}"
+                    <div class="flex justify-between items-center pt-3 border-t border-tec-700/50 gap-1">
+                        @if(!$estaCompletado)
+                            <!-- Test en progreso - Botón Continuar -->
+                            <a href="{{ route('test.question', ['test' => $test->id_test, 'index' => $test->id_pregunta_actual ?? 0]) }}"
                                class="flex-1 bg-gradient-to-r from-tec-500 to-valle-500 hover:from-tec-600 hover:to-valle-600 text-white py-2 px-3 rounded-lg text-xs text-center font-semibold transition-all duration-300 transform hover:scale-105">
                                 <i class="fas fa-play mr-1"></i>Continuar
                             </a>
+                            
+                            <!-- Botón de descarga DESHABILITADO (test en progreso) -->
+                            <span class="btn-download-disabled" title="Completa el test para descargar el reporte">
+                                <i class="fas fa-file-pdf mr-1"></i>
+                                <span>PDF</span>
+                            </span>
                         @else
-                          <a href="{{ route('test.result', $test->id_test) }}"
-                             class="flex-1 bg-gradient-to-r from-tec-500 to-valle-500 hover:from-tec-600 hover:to-valle-600 text-white py-2 px-3 rounded-lg text-xs text-center font-semibold transition-all duration-300 transform hover:scale-105 mr-1">
-                              <i class="fas fa-chart-bar mr-1"></i>Detalles
-                          </a>
+                            <!-- Test COMPLETADO - Botón Detalles -->
+                            <a href="{{ route('test.result', $test->id_test) }}"
+                               class="flex-1 bg-gradient-to-r from-tec-500 to-valle-500 hover:from-tec-600 hover:to-valle-600 text-white py-2 px-3 rounded-lg text-xs text-center font-semibold transition-all duration-300 transform hover:scale-105">
+                                <i class="fas fa-chart-bar mr-1"></i>Detalles
+                            </a>
+                            
+                            <!-- ✅ Botón de descarga HABILITADO (solo para tests completados) -->
+                            <button onclick="descargarReporte({{ $test->id_test }}, this)"
+                                    class="btn-download"
+                                    title="Descargar reporte en PDF">
+                                <i class="fas fa-file-pdf mr-1"></i>
+                                <span class="download-text">PDF</span>
+                            </button>
                         @endif
 
-                        <!-- Botón de eliminar -->
-                        <button class="delete-test bg-red-500/20 hover:bg-red-500/30 text-red-400 p-2 rounded-lg transition-all duration-300"
+                        <!-- Botón de eliminar (siempre visible) -->
+                        <button class="delete-test bg-red-500/20 hover:bg-red-500/30 text-red-400 p-2 rounded-lg transition-all duration-300 flex-shrink-0"
                                 data-test-id="{{ $test->id_test }}">
                             <i class="fas fa-trash text-xs"></i>
                         </button>
                     </div>
                 </div>
 
-                @if($estado && $estado->nombre == 'finalizado' && !empty($puntosData))
+                @if($estaCompletado && !empty($puntosData))
                 <script>
                     document.addEventListener('DOMContentLoaded', function() {
                         const ctx = document.getElementById('chart-{{ $test->id_test }}').getContext('2d');
-
 
                         const backgroundColors = [
                             'rgba(239, 68, 68, 0.8)',
@@ -408,7 +531,6 @@
                             'rgb(99, 102, 241)'
                         ];
 
-
                         const rawData = [
                             {{ $puntosData['R'] }},
                             {{ $puntosData['I'] }},
@@ -417,7 +539,6 @@
                             {{ $puntosData['E'] }},
                             {{ $puntosData['C'] }}
                         ];
-
 
                         const maxValue = Math.max(...rawData);
                         const normalizedData = rawData.map(value => (value / maxValue) * 10);
@@ -502,7 +623,7 @@
             @endforeach
         </div>
 
-        <!-- Stats Summary - Actualizado con IDs para actualización dinámica -->
+        <!-- Stats Summary -->
         <div class="glass-effect rounded-2xl p-6 mb-8">
             <h3 class="text-xl font-bold mb-4 flex items-center">
                 <i class="fas fa-chart-line text-valle-400 mr-3"></i>
@@ -571,49 +692,100 @@
     </footer>
 
     <script>
-        // Variables globales para el manejo de eliminación
+        // ============================================
+        // FUNCIÓN DE DESCARGA INDIVIDUAL
+        // ============================================
+
+        /**
+         * Descargar reporte individual de un test completado
+         */
+        function descargarReporte(testId, button) {
+            // Prevenir múltiples clics
+            if (button.classList.contains('btn-download-loading')) return;
+
+            // Guardar texto original
+            const originalText = button.querySelector('.download-text').textContent;
+            const icon = button.querySelector('i');
+
+            // Mostrar estado de carga
+            button.classList.add('btn-download-loading');
+            button.querySelector('.download-text').textContent = 'Descargando...';
+            icon.className = 'fas fa-spinner fa-spin mr-1';
+
+            // Hacer la petición de descarga
+            fetch(`/reporte/test/${testId}`, {
+                method: 'GET',
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest',
+                }
+            })
+            .then(response => {
+                if (!response.ok) {
+                    return response.json().then(data => {
+                        throw new Error(data.message || 'Error al descargar el reporte');
+                    });
+                }
+                return response.blob();
+            })
+            .then(blob => {
+                // Crear enlace para descarga
+                const url = window.URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `reporte_${testId}_${new Date().toISOString().slice(0,10)}.pdf`;
+                document.body.appendChild(a);
+                a.click();
+                window.URL.revokeObjectURL(url);
+                document.body.removeChild(a);
+
+                // Mostrar notificación de éxito
+                mostrarNotificacion('✅ Reporte descargado exitosamente', 'success');
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                mostrarNotificacion('❌ ' + (error.message || 'Error al descargar el reporte'), 'error');
+            })
+            .finally(() => {
+                // Restaurar botón
+                button.classList.remove('btn-download-loading');
+                button.querySelector('.download-text').textContent = originalText;
+                icon.className = 'fas fa-file-pdf mr-1';
+            });
+        }
+
+        // ============================================
+        // FUNCIONES DE ELIMINACIÓN
+        // ============================================
+
         let testToDelete = null;
         const deleteModal = document.getElementById('deleteModal');
         const cancelDeleteBtn = document.getElementById('cancelDelete');
         const confirmDeleteBtn = document.getElementById('confirmDelete');
 
-        // Configurar event listeners
-        document.addEventListener('DOMContentLoaded', function() {
-            // Efecto de aparición escalonada para las tarjetas
-            const cards = document.querySelectorAll('.test-card');
-            cards.forEach((card, index) => {
-                card.style.animationDelay = `${index * 0.1}s`;
-            });
+        function mostrarNotificacion(mensaje, tipo = 'info') {
+            const notification = document.createElement('div');
+            notification.className = `notification notification-${tipo}`;
+            notification.innerHTML = `
+                <div class="flex items-center">
+                    <i class="fas fa-${tipo === 'success' ? 'check-circle' : tipo === 'error' ? 'exclamation-circle' : 'info-circle'} mr-3 text-lg"></i>
+                    <span>${mensaje}</span>
+                </div>
+            `;
+            document.body.appendChild(notification);
 
-            // Efecto hover mejorado
-            const testCards = document.querySelectorAll('.test-card');
-            testCards.forEach(card => {
-                card.addEventListener('mouseenter', function() {
-                    this.style.transform = 'translateY(-5px) scale(1.02)';
-                });
-                card.addEventListener('mouseleave', function() {
-                    this.style.transform = 'translateY(0) scale(1)';
-                });
-            });
+            setTimeout(() => {
+                notification.classList.add('show');
+            }, 100);
 
-            const deleteButtons = document.querySelectorAll('.delete-test');
-            deleteButtons.forEach(button => {
-                button.addEventListener('click', function() {
-                    testToDelete = this.getAttribute('data-test-id');
-                    showDeleteModal();
-                });
-            });
-
-            cancelDeleteBtn.addEventListener('click', hideDeleteModal);
-            confirmDeleteBtn.addEventListener('click', deleteTest);
-
-            deleteModal.addEventListener('click', function(e) {
-                if (e.target === deleteModal) {
-                    hideDeleteModal();
-                }
-            });
-        });
-
+            setTimeout(() => {
+                notification.classList.remove('show');
+                setTimeout(() => {
+                    if (document.body.contains(notification)) {
+                        document.body.removeChild(notification);
+                    }
+                }, 400);
+            }, 4000);
+        }
 
         function showDeleteModal() {
             deleteModal.classList.add('active');
@@ -630,7 +802,6 @@
             if (!testToDelete) return;
 
             try {
-
                 confirmDeleteBtn.innerHTML = '<i class="fas fa-spinner animate-spin mr-2"></i>Eliminando...';
                 confirmDeleteBtn.disabled = true;
 
@@ -652,32 +823,26 @@
                     setTimeout(() => {
                         testCard.remove();
 
-
                         if (data.stats) {
                             updateStats(data.stats);
                         }
 
-
-                        showNotification('Test eliminado correctamente', 'success');
-
+                        mostrarNotificacion('✅ Test eliminado correctamente', 'success');
                         checkEmptyState();
-
                     }, 300);
                 } else {
-                    showNotification(data.message || 'Error al eliminar el test', 'error');
+                    mostrarNotificacion('❌ ' + (data.message || 'Error al eliminar el test'), 'error');
                 }
 
             } catch (error) {
                 console.error('Error:', error);
-                showNotification('Error de conexión al eliminar el test', 'error');
+                mostrarNotificacion('❌ Error de conexión al eliminar el test', 'error');
             } finally {
-                // Restaurar botón
                 confirmDeleteBtn.innerHTML = '<i class="fas fa-trash mr-2"></i>Eliminar';
                 confirmDeleteBtn.disabled = false;
                 hideDeleteModal();
             }
         }
-
 
         function updateStats(stats) {
             document.getElementById('stats-completed').textContent = stats.completados;
@@ -686,48 +851,55 @@
             document.getElementById('stats-days').textContent = stats.dias_seguimiento;
         }
 
-
         function checkEmptyState() {
             const remainingTests = document.querySelectorAll('.test-card').length;
             if (remainingTests === 0) {
-
                 setTimeout(() => {
                     window.location.reload();
                 }, 1000);
             }
         }
 
+        // ============================================
+        // EVENT LISTENERS
+        // ============================================
 
-        function showNotification(message, type) {
-            const notification = document.createElement('div');
-            notification.className = `fixed top-4 right-4 glass-effect px-6 py-4 rounded-xl z-50 transform translate-x-full transition-transform duration-300 ${
-                type === 'success' ? 'border-l-4 border-green-500' : 'border-l-4 border-red-500'
-            }`;
+        document.addEventListener('DOMContentLoaded', function() {
+            // Efecto de aparición escalonada
+            const cards = document.querySelectorAll('.test-card');
+            cards.forEach((card, index) => {
+                card.style.animationDelay = `${index * 0.1}s`;
+            });
 
-            notification.innerHTML = `
-                <div class="flex items-center">
-                    <i class="fas fa-${type === 'success' ? 'check-circle' : 'exclamation-circle'} ${
-                        type === 'success' ? 'text-green-400' : 'text-red-400'
-                    } mr-3"></i>
-                    <span>${message}</span>
-                </div>
-            `;
+            // Efecto hover
+            const testCards = document.querySelectorAll('.test-card');
+            testCards.forEach(card => {
+                card.addEventListener('mouseenter', function() {
+                    this.style.transform = 'translateY(-5px) scale(1.02)';
+                });
+                card.addEventListener('mouseleave', function() {
+                    this.style.transform = 'translateY(0) scale(1)';
+                });
+            });
 
-            document.body.appendChild(notification);
+            // Event listeners para eliminación
+            const deleteButtons = document.querySelectorAll('.delete-test');
+            deleteButtons.forEach(button => {
+                button.addEventListener('click', function() {
+                    testToDelete = this.getAttribute('data-test-id');
+                    showDeleteModal();
+                });
+            });
 
-            setTimeout(() => {
-                notification.style.transform = 'translateX(0)';
-            }, 100);
+            cancelDeleteBtn.addEventListener('click', hideDeleteModal);
+            confirmDeleteBtn.addEventListener('click', deleteTest);
 
-            setTimeout(() => {
-                notification.style.transform = 'translateX(100%)';
-                setTimeout(() => {
-                    if (document.body.contains(notification)) {
-                        document.body.removeChild(notification);
-                    }
-                }, 300);
-            }, 3000);
-        }
+            deleteModal.addEventListener('click', function(e) {
+                if (e.target === deleteModal) {
+                    hideDeleteModal();
+                }
+            });
+        });
     </script>
 </body>
 </html>
