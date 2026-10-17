@@ -11,7 +11,7 @@ class Carrera extends Model
 
     protected $table = 'carreras';
     protected $primaryKey = 'id_carrera';
-    protected $fillable = ['nombre', 'descripcion'];
+    protected $fillable = ['nombre', 'descripcion','campo_laboral'];
 
     public $timestamps = true;
 
@@ -23,5 +23,28 @@ class Carrera extends Model
             'id_carrera',
             'id_categoria'
         );
+    }
+
+        /**
+     * Relación: una carrera puede ser impartida por muchas universidades
+     */
+    public function universidades()
+    {
+        return $this->belongsToMany(
+            Universidad::class,
+            'carrera_universidad',
+            'id_carrera',
+            'id_universidad'
+        )
+        ->withPivot('duracion', 'modalidad', 'activo')
+        ->withTimestamps();
+    }
+
+    /**
+     * Relación: registros en la tabla pivote
+     */
+    public function carreraUniversidades()
+    {
+        return $this->hasMany(CarreraUniversidad::class, 'id_carrera', 'id_carrera');
     }
 }

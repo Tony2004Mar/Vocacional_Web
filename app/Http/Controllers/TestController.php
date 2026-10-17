@@ -1,11 +1,14 @@
 <?php
+
 namespace App\Http\Controllers;
+
 use Illuminate\Http\Request;
 use App\Models\Test;
 use App\Models\Pregunta;
 use App\Models\Resultado;
 use App\Models\Estado;
 use App\Models\Alumno;
+use App\Models\RespuestaTemporal;
 use Carbon\Carbon;
 use DB;
 
@@ -18,48 +21,48 @@ class TestController extends Controller
 
     public function index()
     {
+        $user = auth()->user();
         $alumno = Alumno::firstOrCreate(['user_id' => $user->id]);
 
         $alumno->load(['tests.resultado']);
 
-       $test = Test::where('id_alumno', $alumno->id_alumno)
-           ->whereHas('estado', function ($query) {
-               $query->where('nombre', '!=', 'finalizado');
-           })
-           ->with(['resultado', 'estado'])
-           ->latest()
-           ->first();
-
+        $test = Test::where('id_alumno', $alumno->id_alumno)
+            ->whereHas('estado', function ($query) {
+                $query->where('nombre', '!=', 'finalizado');
+            })
+            ->with(['resultado', 'estado'])
+            ->latest()
+            ->first();
 
         return view('alumno.home', compact('alumno', 'test'));
     }
 
-   public function start()
-   {
-       $user = auth()->user();
-       $alumno = Alumno::firstOrCreate(['user_id' => $user->id]);
+    public function start()
+    {
+        $user = auth()->user();
+        $alumno = Alumno::firstOrCreate(['user_id' => $user->id]);
 
-       $estado = Estado::where('nombre', 'en_progreso')->first();
+        $estado = Estado::where('nombre', 'en_progreso')->first();
 
-       if (!$estado) {
-           $estado = Estado::create(['nombre' => 'en_progreso']);
-       }
+        if (!$estado) {
+            $estado = Estado::create(['nombre' => 'en_progreso']);
+        }
 
-       $test = Test::create([
-           'id_alumno' => $alumno->id_alumno,
-           'id_estado' => $estado->id_estado,
-           'fecha_inicio' => Carbon::now(),
-       ]);
+        $test = Test::create([
+            'id_alumno' => $alumno->id_alumno,
+            'id_estado' => $estado->id_estado,
+            'fecha_inicio' => Carbon::now(),
+        ]);
 
-       Resultado::create([
-           'id_test' => $test->id_test,
-       ]);
+        Resultado::create([
+            'id_test' => $test->id_test,
+        ]);
 
-       return redirect()->route('test.question', [
-           'test' => $test->id_test,
-           'index' => 0
-       ]);
-   }
+        return redirect()->route('test.question', [
+            'test' => $test->id_test,
+            'index' => 0
+        ]);
+    }
 
     public function showQuestion(Test $test, $index)
     {
@@ -74,6 +77,10 @@ class TestController extends Controller
         return view('alumno.question', compact('test', 'pregunta', 'index', 'total'));
     }
 
+    /**
+     * Método original — mantiene compatibilidad con el flujo pregunta por pregunta.
+     * Se conserva para no romper nada existente.
+     */
     public function answer(Request $request, Test $test)
     {
         $request->validate([
@@ -88,7 +95,6 @@ class TestController extends Controller
         $resultado = Resultado::where('id_test', $test->id_test)->first();
 
         if ($request->respuesta === 'si') {
-            $resultado = Resultado::where('id_test', $test->id_test)->first();
             if ($resultado) {
                 $columna = "puntos_{$codigo}";
                 $resultado->increment($columna);
@@ -106,14 +112,141 @@ class TestController extends Controller
         return redirect()->route('test.question', ['test' => $test->id_test, 'index' => $nextIndex]);
     }
 
+    /**
+     * ⭐ Recibe TODAS las respuestas de golpe y recalcula puntos desde cero.
+     */
+    public function answerBatch(Request $request, Test $test)
+    {
+        $request->validate([
+            'respuestas' => 'required|array',
+            'respuestas.*' => 'required|in:si,no',
+        ]);
+
+        $respuestas = $request->input('respuestas'); // ['id_pregunta' => 'si'|'no', ...]
+
+        $preguntas = Pregunta::with('categoria')
+            ->whereIn('id_pregunta', array_keys($respuestas))
+            ->get()
+            ->keyBy('id_pregunta');
+
+        $resultado = Resultado::where('id_test', $test->id_test)->first();
+
+        if (!$resultado) {
+            $resultado = Resultado::create(['id_test' => $test->id_test]);
+        }
+
+        $resultado->update([
+            'puntos_R' => 0,
+            'puntos_I' => 0,
+            'puntos_A' => 0,
+            'puntos_S' => 0,
+            'puntos_E' => 0,
+            'puntos_C' => 0,
+        ]);
+
+        $puntos = [
+            'R' => 0, 'I' => 0, 'A' => 0,
+            'S' => 0, 'E' => 0, 'C' => 0,
+        ];
+
+        foreach ($respuestas as $idPregunta => $respuesta) {
+            $pregunta = $preguntas->get($idPregunta);
+            if (!$pregunta || !$pregunta->categoria) {
+                continue;
+            }
+
+            if ($respuesta === 'si') {
+                $codigo = $pregunta->categoria->codigo;
+                if (isset($puntos[$codigo])) {
+                    $puntos[$codigo]++;
+                }
+            }
+        }
+
+        $resultado->update([
+            'puntos_R' => $puntos['R'],
+            'puntos_I' => $puntos['I'],
+            'puntos_A' => $puntos['A'],
+            'puntos_S' => $puntos['S'],
+            'puntos_E' => $puntos['E'],
+            'puntos_C' => $puntos['C'],
+        ]);
+
+        $ultimaPreguntaId = array_key_last($respuestas) ?: null;
+        $test->update(['id_pregunta_actual' => $ultimaPreguntaId]);
+
+        // ⭐ Limpiar respuestas temporales (ya no se necesitan)
+        RespuestaTemporal::where('id_test', $test->id_test)->delete();
+
+        return $this->finish($test);
+    }
+
+    /**
+     * ⭐ NUEVO — Guarda (o actualiza) UNA sola respuesta individual.
+     * Se llama vía AJAX cada vez que el alumno responde o cambia una pregunta.
+     */
+    public function answerSingle(Request $request, Test $test)
+    {
+        $request->validate([
+            'id_pregunta' => 'required|integer',
+            'respuesta'   => 'required|in:si,no',
+        ]);
+
+        // Verificar que la pregunta existe
+        Pregunta::findOrFail($request->id_pregunta);
+
+        // Guardar o actualizar la respuesta temporal
+        RespuestaTemporal::updateOrCreate(
+            [
+                'id_test'     => $test->id_test,
+                'id_pregunta' => $request->id_pregunta,
+            ],
+            [
+                'respuesta' => $request->respuesta,
+            ]
+        );
+
+        // Actualizar la última pregunta respondida
+        $test->update(['id_pregunta_actual' => $request->id_pregunta]);
+
+        // Contar cuántas respuestas lleva
+        $totalRespondidas = RespuestaTemporal::where('id_test', $test->id_test)->count();
+        $totalPreguntas   = Pregunta::count();
+
+        return response()->json([
+            'success'     => true,
+            'respondidas' => $totalRespondidas,
+            'total'       => $totalPreguntas,
+            'completado'  => $totalRespondidas >= $totalPreguntas,
+        ]);
+    }
+
+    /**
+     * ⭐ NUEVO — Devuelve TODAS las respuestas temporales de un test.
+     * Se llama al cargar la vista para restaurar el progreso.
+     */
+    public function getAnswers(Test $test)
+    {
+        $respuestas = RespuestaTemporal::where('id_test', $test->id_test)
+            ->get()
+            ->mapWithKeys(function ($r) {
+                return [String($r->id_pregunta) => $r->respuesta];
+            });
+
+        return response()->json([
+            'success'    => true,
+            'respuestas' => $respuestas,
+        ]);
+    }
+
     public function history()
     {
         $user = auth()->user();
         $alumno = Alumno::where('user_id', $user->id)->first();
 
-      $tests = $alumno
-          ? Test::with(['estado', 'resultado'])->where('id_alumno', $alumno->id_alumno)->orderByDesc('created_at')->get()
-          : collect();
+        $tests = $alumno
+            ? Test::with(['estado', 'resultado'])->where('id_alumno', $alumno->id_alumno)->orderByDesc('created_at')->get()
+            : collect();
 
         return view('alumno.history', compact('tests'));
     }
@@ -130,6 +263,7 @@ class TestController extends Controller
 
             DB::beginTransaction();
             Resultado::where('id_test', $test->id_test)->delete();
+            RespuestaTemporal::where('id_test', $test->id_test)->delete(); // limpiar también
             $test->delete();
             DB::commit();
 
@@ -146,12 +280,12 @@ class TestController extends Controller
     {
         $tests = Test::with('estado')->where('id_alumno', $idAlumno)->get();
 
-           return [
-               'completados' => $tests->filter(fn($t) => $t->estado && $t->estado->nombre === 'finalizado')->count(),
-               'en_progreso' => $tests->filter(fn($t) => $t->estado && $t->estado->nombre === 'en_progreso')->count(),
-               'total' => $tests->count(),
-               'dias_seguimiento' => $tests->min('fecha_inicio') ? now()->diffInDays($tests->min('fecha_inicio')) : 0
-           ];
+        return [
+            'completados' => $tests->filter(fn($t) => $t->estado && $t->estado->nombre === 'finalizado')->count(),
+            'en_progreso' => $tests->filter(fn($t) => $t->estado && $t->estado->nombre === 'en_progreso')->count(),
+            'total' => $tests->count(),
+            'dias_seguimiento' => $tests->min('fecha_inicio') ? now()->diffInDays($tests->min('fecha_inicio')) : 0
+        ];
     }
 
     public function showResult(Test $test)
@@ -184,17 +318,16 @@ class TestController extends Controller
 
     protected function finish(Test $test)
     {
-       $estadoFinalizado = Estado::where('nombre', 'finalizado')->first();
+        $estadoFinalizado = Estado::where('nombre', 'finalizado')->first();
 
-       if (!$estadoFinalizado) {
-           $estadoFinalizado = Estado::create(['nombre' => 'finalizado']);
-       }
+        if (!$estadoFinalizado) {
+            $estadoFinalizado = Estado::create(['nombre' => 'finalizado']);
+        }
 
-       $test->update([
-           'fecha_finalizacion' => Carbon::now(),
-           'id_estado' => $estadoFinalizado->id_estado
-       ]);
-
+        $test->update([
+            'fecha_finalizacion' => Carbon::now(),
+            'id_estado' => $estadoFinalizado->id_estado
+        ]);
 
         $resultado = Resultado::where('id_test', $test->id_test)->first();
         if (!$resultado) abort(404, 'Resultado no encontrado');
@@ -222,4 +355,3 @@ class TestController extends Controller
         return view('alumno.results', compact('test', 'puntos', 'carreras', 'topCategorias'));
     }
 }
-

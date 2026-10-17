@@ -29,5 +29,10 @@ class Test extends Model {
        return $this->belongsTo(Estado::class, 'id_estado', 'id_estado');
    }
 
+    public function respuestasTemporales()
+    {
+        return $this->hasMany(RespuestaTemporal::class, 'id_test', 'id_test');
+    }
+
 
 }

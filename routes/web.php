@@ -41,15 +41,28 @@ Route::middleware('auth')->group(function () {
 });
 
 use App\Http\Controllers\TestController;
+use App\Http\Controllers\ChatController;
 
 Route::middleware(['auth', 'rol:estudiante'])->group(function () {
     Route::get('/alumno', [TestController::class, 'index'])->name('alumno.dashboard');
     Route::post('/test/start', [TestController::class, 'start'])->name('test.start');
     Route::get('/test/{test}/question/{index}', [TestController::class, 'showQuestion'])->name('test.question');
     Route::post('/test/{test}/answer', [TestController::class, 'answer'])->name('test.answer');
-     Route::get('/test/history', [TestController::class, 'history'])->name('test.history');
+
+    Route::post('/test/{test}/answer-batch', [TestController::class, 'answerBatch'])->name('test.answerBatch');
+    Route::post('/test/{test}/answer-single', [TestController::class, 'answerSingle'])->name('test.answerSingle');
+    Route::get('/test/{test}/answers', [TestController::class, 'getAnswers'])->name('test.answers');
+    Route::get('/test/history', [TestController::class, 'history'])->name('test.history');
+    Route::get('/test/{test}/result', [TestController::class, 'showResult'])->name('test.result');
+    Route::delete('/test/{test}', [TestController::class, 'eliminarTest'])->name('test.eliminar');
+    Route::post('/chat/carrera', [ChatController::class, 'preguntar'])
+    ->name('chat.carrera');
 });
 
+
+
+Route::post('/test/{test}/answer-batch', [TestController::class, 'answerBatch'])
+    ->name('test.answerBatch');
 
 Route::get('/test/{test}/result', [TestController::class, 'showResult'])
      ->name('test.result')
